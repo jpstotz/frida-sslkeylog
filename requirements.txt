@@ -1,2 +1,2 @@
-frida-tools==1.0.0
-pyasn1==0.4.3
+frida-tools~=10.6.0
+pyasn1~=0.4.8

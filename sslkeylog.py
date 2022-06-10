@@ -5,17 +5,15 @@ from frida_tools.application import ConsoleApplication
 
 from pyasn1.codec.der import decoder
 
-
 AGENT_FILENAME = os.path.join(os.path.dirname(os.path.abspath(__file__)), "agent.js")
 
 
 class Application(ConsoleApplication):
-
     SESSION_ID_LENGTH = 32
     MASTER_KEY_LENGTH = 48
 
     def _add_options(self, parser):
-        parser.add_option("-o", "--output", help="SSL keylog file to write")
+        parser.add_argument("-o", "--output", help="SSL keylog file to write")
 
     def _initialize(self, parser, options, args):
         self._file = open(options.output, "a")
@@ -40,10 +38,14 @@ class Application(ConsoleApplication):
 
         self._script = self._session.create_script(self._agent())
         self._script.on("message", on_message)
+        self._script.set_log_handler(self._log)
 
         self._update_status("Loading script...")
         self._script.load()
         self._update_status("Loaded script")
+
+    def _log(self, level, text):
+        ConsoleApplication._log(self, level, text)
 
     def _on_message(self, message, data):
         if message["type"] == "send":

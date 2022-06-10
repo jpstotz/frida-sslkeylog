@@ -18,10 +18,13 @@ function queryPrefixFromMatch(match) {
 }
 
 const resolver = new ApiResolver("module");
+var connectFound = 0;
 
 resolver.enumerateMatches("exports:*!SSL_connect", {
     onMatch: function (match) {
         const queryPrefix = queryPrefixFromMatch(match);
+		console.log("SSL_connect found : " + queryPrefix);
+		connectFound++;
 
         function resolveExport(name) {
             const matches = resolver.enumerateMatchesSync(queryPrefix + name);
@@ -84,5 +87,11 @@ resolver.enumerateMatches("exports:*!SSL_connect", {
         attachSSLExport("SSL_write");
     },
 
-    onComplete: function() {}
+    onComplete: function() {
+        if (connectFound == 0) {
+            console.log("ERROR: no SSL_CONNECT function found!");
+        } else {
+            console.log("Initialization finished");
+        }
+	}
 });
