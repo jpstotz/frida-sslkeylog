@@ -1,27 +1,16 @@
 # frida-sslkeylog
 
-**TODO:** Need to improve reliability with the Wireshark SSL dissector. This is
-difficult to do without breaking ABI portability.
+**This version is designed to hook processes where OpenSSL has 
+been linked statically into the executable (or library). Before using the script you 
+have to edit the module name and the function addresses in `agent.js`.** 
 
 Frida tool to dump an [NSS Key
 Log](https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/Key_Log_Format)
 for Wireshark, from a process using dynamically linked OpenSSL (or BoringSSL).
 
-This should include Java code on Android, or apps that bundle their own OpenSSL
-(or BoringSSL) dynamic library. **But it does not support statically linked
-OpenSSL (or BoringSSL), or applications using alternative libraries such as
-Mozilla NSS.**
-
-This uses a Wireshark variant of the key log format, instead of the
-`CLIENT_RANDOM` label. This is because the Session ID and Master Key can be
-portably obtained through Frida, using the ASN.1 encoding of `SSL_SESSION`, but
-the Client Random cannot (it requires C structure accesses).
-
 ```
-RSA Session-ID:<64 hex characters of Session ID> Master-Key:<96 hex characters of Master Key>
+CLIENT_RANDOM <64 hex characters of client random data> <96 hex characters of master key>
 ```
-
-Despite the use of the label `RSA`, this is not RSA-specific.
 
 ## Installation
 

@@ -10,6 +10,7 @@ AGENT_FILENAME = os.path.join(os.path.dirname(os.path.abspath(__file__)), "agent
 
 class Application(ConsoleApplication):
     SESSION_ID_LENGTH = 32
+    CLIENT_RANDOM_LENGTH = 32
     MASTER_KEY_LENGTH = 48
 
     def _add_options(self, parser):
@@ -34,7 +35,7 @@ class Application(ConsoleApplication):
         def on_message(message, data):
             self._reactor.schedule(lambda: self._on_message(message, data))
 
-        self._session_cache = set()
+        self._client_random_cache = set()
 
         self._script = self._session.create_script(self._agent())
         self._script.on("message", on_message)
@@ -56,31 +57,23 @@ class Application(ConsoleApplication):
         print(message)
 
     def _on_session(self, data):
-        asn1Sequence, _ = decoder.decode(data)
+        client_random_data = data[:32]
 
-        session_id = asn1Sequence[3].asOctets()
-        master_key = asn1Sequence[4].asOctets()
-
-        self._keylog(session_id, master_key)
-
-    def _cache_session(self, session_id):
-        if session_id in self._session_cache:
-            return False
-
-        self._session_cache.add(session_id)
-        return True
-
-    def _keylog(self, session_id, master_key):
-        # The hooks can catch the SSL session in an uninitialized state
-        if not session_id:
-            self._log("warning", "Uninitialized Session ID: {}".format(master_key.hex()))
-            return False
-
-        if not self._cache_session(session_id):
+        if not self._cache_client_random(client_random_data):
             return
 
+        asn1Sessiondata = data[32:]
+
+        asn1Sequence, _ = decoder.decode(asn1Sessiondata)
+
+        # session_id = asn1Sequence[3].asOctets()
+        master_key = asn1Sequence[4].asOctets()
+
+        self._keylog(client_random_data, master_key)
+
+    def _keylog(self, client_random_data, master_key):
         try:
-            keylog_str = self._keylog_str(session_id, master_key)
+            keylog_str = self._keylog_str(client_random_data, master_key)
         except ValueError as e:
             self._log("warning", "Ignored key log: {}".format(e))
             return
@@ -88,16 +81,31 @@ class Application(ConsoleApplication):
         self._log("info", "Logging SSL session: {}".format(keylog_str))
         self._write(keylog_str + "\n")
 
+    def _cache_client_random(self, client_random):
+        if client_random in self._client_random_cache:
+            return False
+
+        self._client_random_cache.add(client_random)
+        return True
+
     @classmethod
-    def _keylog_str(cls, session_id, master_key):
-        if len(session_id) != cls.SESSION_ID_LENGTH:
-            raise ValueError("Session ID length is incorrect")
+    def _keylog_str(cls, client_random_data, master_key):
+        """
+        Generate a log line in the NSS Key Log Format
+        https://firefox-source-docs.mozilla.org/security/nss/legacy/key_log_format/index.html
+
+        :param client_random_data:
+        :param master_key:
+        :return: formatted log line
+        """
+        if len(client_random_data) != cls.CLIENT_RANDOM_LENGTH:
+            raise ValueError("Client random length is incorrect")
 
         if len(master_key) != cls.MASTER_KEY_LENGTH:
             raise ValueError("Master Key length is incorrect")
 
-        return "RSA Session-ID:{} Master-Key:{}".format(
-            session_id.hex(),
+        return "CLIENT_RANDOM {} {}".format(
+            client_random_data.hex(),
             master_key.hex(),
         )
 
